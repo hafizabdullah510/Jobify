@@ -8,6 +8,7 @@ import path from "path";
 import helmet from "helmet";
 import xss from "xss-clean";
 import mongoSanitize from "express-mongo-sanitize";
+import cookieParser from "cookie-parser";
 
 // Do not need to use cors if using proxy on front-end (import cors from 'cors')
 import Connection from "./Db/db.js";
@@ -22,6 +23,7 @@ app.use(express.json());
 app.use(helmet());
 app.use(xss());
 app.use(mongoSanitize());
+app.use(cookieParser());
 if (process.env.NODE_ENV !== "production") {
   app.use(morgan("dev"));
 }

@@ -10,10 +10,18 @@ const apiLimit = rateLimiter({
   message: "Too many requests! please try again after 15 minutes",
 });
 
-import { register, login, updateUser } from "../controllers/authController.js";
+import {
+  register,
+  login,
+  updateUser,
+  getCurrentUser,
+  logoutUser,
+} from "../controllers/authController.js";
 
 routes.post("/register", apiLimit, register);
 routes.post("/login", apiLimit, login);
 routes.patch("/updateUser", authenticateUser, updateUser);
+routes.get("/getCurrentUser", authenticateUser, getCurrentUser);
+routes.get("/logout", logoutUser);
 
 export default routes;

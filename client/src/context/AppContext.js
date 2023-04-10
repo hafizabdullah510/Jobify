@@ -1,4 +1,4 @@
-import React, { useContext, useReducer } from "react";
+import React, { useContext, useEffect, useReducer } from "react";
 import reducer from "./reducer";
 import axios from "axios";
 import {
@@ -31,27 +31,24 @@ import {
   SHOW_STATS_SUCCESS,
   CLEAR_FILTERS,
   CHANGE_PAGE,
+  CURRENT_USER_BEGIN,
+  CURRENT_USER_SUCCESS,
 } from "./actions";
 
-//import from local storage on app start
-const userToken = localStorage.getItem("token");
-const user = localStorage.getItem("user");
-const userLocation = localStorage.getItem("location");
-
 export const initialState = {
+  userLoading: true,
   isLoading: false,
   showAlert: false,
   alertText: "",
   alertType: "",
-  user: user ? JSON.parse(user) : null,
-  token: userToken,
-  userLocation: userLocation || "",
+  user: null,
+  userLocation: "",
   showSideBar: true,
   isEditing: false,
   editJobId: "",
   company: "",
   position: "",
-  jobLocation: userLocation || "",
+  jobLocation: "",
   statusTypes: ["pending", "interview", "declined"],
   status: "pending",
   jobTypeOptions: ["full-time", "part-time", "remote", "internship"],
@@ -78,19 +75,6 @@ const AppProvider = ({ children }) => {
   const authFetch = axios.create({
     baseURL: "/api/v1",
   });
-
-  // interceptors to handle Authentication erros (401)
-  //Request
-
-  authFetch.interceptors.request.use(
-    (config) => {
-      config.headers["Authorization"] = `Bearer ${state.token}`;
-      return config;
-    },
-    (err) => {
-      return Promise.reject(err);
-    }
-  );
 
   //Response
   authFetch.interceptors.response.use(
@@ -119,31 +103,16 @@ const AppProvider = ({ children }) => {
     dispatch({ type: HANDLE_CHANGE, payload: { name, value } });
   };
 
-  //Add user to local storage
-  const addToLocalStorage = ({ user, location, token }) => {
-    localStorage.setItem("user", JSON.stringify(user));
-    localStorage.setItem("token", token);
-    localStorage.setItem("location", location);
-  };
-
-  //Remove user from local storage
-  const removeFromLocalStorage = () => {
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
-    localStorage.removeItem("location");
-  };
-
   const registerUser = async (currentUser) => {
     dispatch({ type: REGISTER_USER_BEGIN });
     try {
       const response = await axios.post("/api/v1/auth/register", currentUser);
-      const { user, token, location } = response.data;
+      const { user, location } = response.data;
       dispatch({
         type: REGISTER_USER_SUCCESS,
-        payload: { user, token, location },
+        payload: { user, location },
       });
       // Add user to local storage
-      addToLocalStorage({ user, location, token });
     } catch (err) {
       dispatch({ type: REGISTER_USER_ERROR, payload: err.response.data.msg });
     }
@@ -155,15 +124,13 @@ const AppProvider = ({ children }) => {
     try {
       const { data } = await axios.post("/api/v1/auth/login", currentUser);
       // console.log(response);
-      const { user, token, location } = data;
+      const { user, location } = data;
       dispatch({
         type: LOGIN_USER_SUCCESS,
-        payload: { user, token, location },
+        payload: { user, location },
       });
       // Add user to local storage
-      addToLocalStorage({ user, location, token });
     } catch (err) {
-      console.log(err.response);
       dispatch({ type: LOGIN_USER_ERROR, payload: err.response.data.msg });
     }
     clearAlert();
@@ -173,22 +140,21 @@ const AppProvider = ({ children }) => {
     dispatch({ type: TOGGLE_SIDEBAR });
   };
 
-  const logoutUser = () => {
+  const logoutUser = async () => {
+    await authFetch.get("/auth/logout");
     dispatch({ type: LOGOUT_USER });
-    removeFromLocalStorage();
   };
 
   const updateUser = async (currentUser) => {
     dispatch({ type: UPDATE_USER_BEGIN });
     try {
       const { data } = await authFetch.patch("/auth/updateUser", currentUser);
-      const { user, token, location } = data;
+      const { user, location } = data;
 
       dispatch({
         type: UPDATE_USER_SUCCESS,
-        payload: { user, location, token },
+        payload: { user, location },
       });
-      addToLocalStorage({ user, location, token });
     } catch (err) {
       if (err.response.status !== 401) {
         dispatch({
@@ -310,6 +276,22 @@ const AppProvider = ({ children }) => {
   const changePage = (page) => {
     dispatch({ type: CHANGE_PAGE, payload: { page } });
   };
+
+  const getCurrentUser = async () => {
+    dispatch({ type: CURRENT_USER_BEGIN });
+    try {
+      const { data } = await authFetch.get("/auth/getCurrentUser");
+      const { user, location } = data;
+      dispatch({ type: CURRENT_USER_SUCCESS, payload: { user, location } });
+    } catch (err) {
+      if (err.response.status === 401) return;
+      logoutUser();
+    }
+  };
+
+  useEffect(() => {
+    getCurrentUser();
+  }, []);
 
   return (
     <AppContext.Provider

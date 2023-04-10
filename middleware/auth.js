@@ -1,13 +1,12 @@
 import { Unauthorized } from "../errors/index.js";
 import jwt from "jsonwebtoken";
+
 const authenticateUser = async (req, res, next) => {
-  const authUser = req.headers.authorization;
-  if (!authUser || !authUser.startsWith("Bearer")) {
+  const token = req.cookies.token;
+
+  if (!token) {
     throw new Unauthorized("Authentication Invalid");
   }
-
-  const token = authUser.split(" ")[1];
-  console.log(token);
 
   try {
     const payload = jwt.verify(token, process.env.jwtSecret);
